@@ -1,0 +1,15 @@
+# Repositories to check for standards compliance
+# The workflow iterates over this list and checks each repo.
+#
+# Required: A repository secret COMPLIANCE_TOKEN (PAT with repo scope)
+# must be configured to allow cross-repo branch pushes and PR creation.
+
+repositories:
+  - owner: jkordick
+    repo: programmier_bar
+    description: Space Devs — Intergalactic Developer Registry
+
+  # Add more repos here:
+  # - owner: jkordick
+  #   repo: another-project
+  #   description: Another project to check
