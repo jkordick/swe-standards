@@ -1,8 +1,25 @@
 # Repositories to check for standards compliance
 # The workflow iterates over this list and checks each repo.
 #
-# Required: A repository secret COMPLIANCE_TOKEN (PAT with repo scope)
-# must be configured to allow cross-repo branch pushes and PR creation.
+# ── Required: COMPLIANCE_TOKEN secret ──
+#
+# Create a fine-grained Personal Access Token (PAT) at:
+#   https://github.com/settings/personal-access-tokens/new
+#
+# Token type: Fine-grained personal access token
+# Resource owner: jkordick (or your org)
+# Repository access: "Only select repositories" → select all repos listed below
+# Permissions:
+#   - Contents:      Read and Write  (to push compliance-fix branches)
+#   - Pull requests: Read and Write  (to open PRs in target repos)
+#   - Metadata:      Read            (automatically granted)
+#
+# Then add it as a repository secret in THIS repo (swe-standards):
+#   Settings → Secrets and variables → Actions → New repository secret
+#   Name: COMPLIANCE_TOKEN
+#   Value: <your PAT>
+#
+# When you add a new repo below, update the PAT's repository access to include it.
 
 repositories:
   - owner: jkordick
