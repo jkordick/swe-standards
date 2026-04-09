@@ -1,0 +1,29 @@
+# README.md structure requirements
+# Defines sections that must be present in every project README
+
+required_sections:
+  - heading: "Quick Start"
+    aliases: ["Getting Started", "Setup", "Installation"]
+    description: Instructions to get the project running locally
+    must_contain:
+      - code block with shell commands
+
+  - heading: "Prerequisites"
+    aliases: ["Requirements", "Dependencies"]
+    description: Tools and versions needed before setup
+
+  - heading: "API Endpoints"
+    aliases: ["API Reference", "API Documentation", "Endpoints"]
+    description: Table or list of available API endpoints
+    applies_to: ["backend", "api", "service"]
+
+  - heading: "Project Structure"
+    aliases: ["Structure", "Architecture", "Layout"]
+    description: Overview of the directory structure
+
+optional_sections:
+  - heading: "Contributing"
+    description: Link to CONTRIBUTING.md or inline guidelines
+
+  - heading: "License"
+    description: License information

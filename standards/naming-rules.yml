@@ -1,0 +1,33 @@
+# Naming convention rules for Java Spring Boot projects
+# These are checked against actual source code
+
+rules:
+  java:
+    controllers:
+      pattern: "*Controller.java"
+      location: "**/controller/"
+      description: Controllers must end with 'Controller' and live in a controller package
+
+    services:
+      pattern: "*Service.java"
+      location: "**/service/"
+      description: Services must end with 'Service' and live in a service package
+
+    repositories:
+      pattern: "*Repository.java"
+      location: "**/repository/"
+      description: Repositories must end with 'Repository' and live in a repository package
+
+    models:
+      location: "**/model/"
+      description: Domain models must live in a model package
+
+  typescript:
+    components:
+      pattern: "*.tsx"
+      case: PascalCase
+      description: React components must use PascalCase file names
+
+    types:
+      file: "types.ts"
+      description: Shared types should be in a types.ts file

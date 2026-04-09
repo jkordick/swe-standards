@@ -1,0 +1,187 @@
+# Compliance Check Workflow
+# Copy this file into target repositories at .github/workflows/compliance-check.yml
+#
+# This workflow:
+# 1. Runs daily (and on manual trigger)
+# 2. Fetches standards from the swe-standards repo
+# 3. Checks the project against defined standards
+# 4. Opens a PR if any drift is detected
+
+name: Standards Compliance Check
+
+on:
+  schedule:
+    - cron: '0 8 * * 1-5'  # Weekdays at 8:00 UTC
+  workflow_dispatch:        # Manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  compliance-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Checkout standards repo
+        uses: actions/checkout@v4
+        with:
+          repository: jkordick/swe-standards
+          path: .standards
+
+      - name: Run compliance checks
+        id: check
+        run: |
+          set -euo pipefail
+
+          FIXES_NEEDED=false
+          REPORT="## Standards Compliance Report\n\n"
+          BRANCH="auto/compliance-fixes-$(date +%Y%m%d)"
+
+          # ── 1. Check required files ──
+          echo "Checking required files..."
+          while IFS= read -r file; do
+            if [[ ! -f "$file" ]]; then
+              echo "❌ Missing: $file"
+              REPORT+="- ❌ Missing required file: \`$file\`\n"
+              FIXES_NEEDED=true
+            else
+              echo "✅ Found: $file"
+              REPORT+="- ✅ Found: \`$file\`\n"
+            fi
+          done < <(yq '.required_files[].path' .standards/standards/required-files.yml)
+
+          # ── 2. Check README sections ──
+          echo "\nChecking README sections..."
+          if [[ -f README.md ]]; then
+            while IFS= read -r section; do
+              # Check main heading and aliases
+              ALIASES=$(yq ".required_sections[] | select(.heading == \"$section\") | .aliases[]" .standards/standards/readme-rules.yml 2>/dev/null || echo "")
+              FOUND=false
+              for term in "$section" $ALIASES; do
+                if grep -qi "^#.*$term" README.md 2>/dev/null; then
+                  FOUND=true
+                  break
+                fi
+              done
+              if [[ "$FOUND" == "true" ]]; then
+                echo "✅ README section: $section"
+                REPORT+="- ✅ README has section: \`$section\`\n"
+              else
+                echo "❌ README missing section: $section"
+                REPORT+="- ❌ README missing section: \`$section\`\n"
+                FIXES_NEEDED=true
+              fi
+            done < <(yq '.required_sections[].heading' .standards/standards/readme-rules.yml)
+          else
+            echo "❌ No README.md found"
+            REPORT+="- ❌ No README.md found\n"
+            FIXES_NEEDED=true
+          fi
+
+          # ── 3. Check architecture doc ──
+          echo "\nChecking architecture documentation..."
+          if [[ -f docs/architecture.md ]]; then
+            HAS_DIAGRAM=false
+            while IFS= read -r pattern; do
+              if grep -q "$pattern" docs/architecture.md 2>/dev/null; then
+                HAS_DIAGRAM=true
+                break
+              fi
+            done < <(yq '.rules[] | select(.name == "architecture-has-diagram") | .patterns[]' .standards/standards/architecture-rules.yml)
+            if [[ "$HAS_DIAGRAM" == "true" ]]; then
+              echo "✅ Architecture doc has diagram"
+              REPORT+="- ✅ Architecture doc has diagram\n"
+            else
+              echo "❌ Architecture doc missing diagram"
+              REPORT+="- ❌ Architecture doc missing diagram\n"
+              FIXES_NEEDED=true
+            fi
+          else
+            echo "❌ Missing docs/architecture.md"
+            REPORT+="- ❌ Missing \`docs/architecture.md\`\n"
+            FIXES_NEEDED=true
+          fi
+
+          # ── Save outputs ──
+          echo "fixes_needed=$FIXES_NEEDED" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo -e "$REPORT" > /tmp/compliance-report.md
+
+      - name: Apply fixes with GitHub Copilot
+        if: steps.check.outputs.fixes_needed == 'true'
+        uses: actions/github-script@v7
+        env:
+          REPORT: ${{ steps.check.outputs.report }}
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('/tmp/compliance-report.md', 'utf8');
+
+            // Copy missing template files
+            const requiredFiles = fs.readFileSync('.standards/standards/required-files.yml', 'utf8');
+            const lines = requiredFiles.split('\n');
+            let currentPath = '';
+            let currentTemplate = '';
+
+            for (const line of lines) {
+              const pathMatch = line.match(/^\s+- path:\s+(.+)/);
+              const templateMatch = line.match(/^\s+template:\s+(.+)/);
+
+              if (pathMatch) currentPath = pathMatch[1];
+              if (templateMatch) currentTemplate = templateMatch[1];
+
+              if (currentPath && currentTemplate && !fs.existsSync(currentPath)) {
+                const templatePath = `.standards/${currentTemplate}`;
+                if (fs.existsSync(templatePath)) {
+                  const dir = require('path').dirname(currentPath);
+                  fs.mkdirSync(dir, { recursive: true });
+                  fs.copyFileSync(templatePath, currentPath);
+                  console.log(`Created ${currentPath} from template`);
+                }
+                currentPath = '';
+                currentTemplate = '';
+              }
+            }
+
+      - name: Create PR with fixes
+        if: steps.check.outputs.fixes_needed == 'true'
+        run: |
+          BRANCH="${{ steps.check.outputs.branch }}"
+
+          # Clean up standards checkout before committing
+          rm -rf .standards
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add -A
+
+          # Check if there are actual changes to commit
+          if git diff --cached --quiet; then
+            echo "No file changes to commit (fixes may require agent generation)"
+            exit 0
+          fi
+
+          git commit -m "fix: apply standards compliance fixes
+
+          Auto-generated by the daily compliance check workflow.
+          See PR body for detailed compliance report."
+
+          git push origin "$BRANCH"
+
+          # Create PR
+          REPORT=$(cat /tmp/compliance-report.md)
+          gh pr create \
+            --title "🏛️ Standards Compliance: Auto-fix $(date +%Y-%m-%d)" \
+            --body "$REPORT
+
+          ---
+          *This PR was automatically created by the [Standards Compliance Check](https://github.com/jkordick/swe-standards) workflow.*
+          *Review the changes and merge if they look correct.*" \
+            --base main \
+            --head "$BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

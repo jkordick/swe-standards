@@ -1,0 +1,27 @@
+# Required files that must exist in every compliant repository
+# Each entry defines:
+#   - path: where the file must exist
+#   - template: (optional) template to use if file is missing
+#   - description: why this file is required
+
+required_files:
+  - path: CONTRIBUTING.md
+    template: templates/CONTRIBUTING.md
+    description: Guidelines for contributing to the project
+
+  - path: SECURITY.md
+    template: templates/SECURITY.md
+    description: Security policy and vulnerability reporting instructions
+
+  - path: .github/copilot-instructions.md
+    template: templates/copilot-instructions.md
+    generate: true  # content should be generated from project analysis
+    description: Copilot customization instructions tailored to the project
+
+  - path: docs/architecture.md
+    template: templates/architecture.md
+    generate: true  # content should be generated from project structure
+    description: Architecture overview with diagram
+
+  - path: LICENSE
+    description: License file (any OSI-approved license)

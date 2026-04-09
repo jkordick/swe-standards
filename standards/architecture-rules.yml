@@ -1,0 +1,28 @@
+# Architecture documentation requirements
+
+rules:
+  - name: architecture-doc-exists
+    description: An architecture document must exist at docs/architecture.md
+    check: file_exists
+    path: docs/architecture.md
+
+  - name: architecture-has-diagram
+    description: The architecture doc must contain a diagram (Mermaid, ASCII, or image)
+    check: content_matches
+    path: docs/architecture.md
+    patterns:
+      - "```mermaid"       # Mermaid diagram
+      - "!["               # Image reference
+      - "┌"                # ASCII box drawing
+      - "graph "           # Mermaid graph
+      - "flowchart "       # Mermaid flowchart
+
+  - name: architecture-has-components
+    description: The architecture doc must describe system components
+    check: has_heading
+    path: docs/architecture.md
+    headings:
+      - "Components"
+      - "Services"
+      - "Modules"
+      - "System Overview"
